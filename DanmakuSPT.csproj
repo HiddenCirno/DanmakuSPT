@@ -1,0 +1,64 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>netstandard2.1</TargetFramework>
+		<Nullable>enable</Nullable>
+		<OutDir>I:\TKF\BepInEx\plugins</OutDir>
+		<AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+		<AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<Reference Include="Comfort">
+			<HintPath>I:\TKF\EscapeFromTarkov_Data\Managed\Comfort.dll</HintPath>
+			<Private>False</Private>
+		</Reference>
+		<Reference Include="DissonanceVoip">
+			<HintPath>I:\TKF\EscapeFromTarkov_Data\Managed\DissonanceVoip.dll</HintPath>
+			<Private>False</Private>
+		</Reference>
+		<Reference Include="I:\TKF\BepInEx\core\0Harmony.dll">
+			<Private>False</Private>
+		</Reference>
+		<Reference Include="I:\TKF\BepInEx\core\BepInEx.dll">
+			<Private>False</Private>
+		</Reference>
+
+		<Reference Include="I:\TKF\BepInEx\plugins\spt\*.dll">
+			<Private>False</Private>
+		</Reference>
+
+		<Reference Include="I:\TKF\EscapeFromTarkov_Data\Managed\UnityEngine*.dll">
+			<Private>False</Private>
+		</Reference>
+
+		<Reference Include="I:\TKF\EscapeFromTarkov_Data\Managed\Assembly-CSharp.dll">
+			<Private>False</Private>
+		</Reference>
+
+		<Reference Include="ItemComponent.Types">
+			<HintPath>I:\TKF\EscapeFromTarkov_Data\Managed\ItemComponent.Types.dll</HintPath>
+			<Private>False</Private>
+		</Reference>
+
+		<Reference Include="Newtonsoft.Json">
+			<HintPath>I:\TKF\EscapeFromTarkov_Data\Managed\Newtonsoft.Json.dll</HintPath>
+			<Private>False</Private>
+		</Reference>
+
+		<Reference Include="Sirenix.Serialization">
+			<HintPath>I:\TKF\EscapeFromTarkov_Data\Managed\Sirenix.Serialization.dll</HintPath>
+			<Private>False</Private>
+		</Reference>
+
+		<Reference Include="System.Drawing.Design">
+			<HintPath>I:\TKF\EscapeFromTarkov_Data\Managed\System.Drawing.Design.dll</HintPath>
+		</Reference>
+
+		<Reference Include="System.Windows.Forms">
+			<HintPath>I:\TKF\EscapeFromTarkov_Data\Managed\System.Windows.Forms.dll</HintPath>
+			<Private>False</Private>
+		</Reference>
+	</ItemGroup>
+
+</Project>
