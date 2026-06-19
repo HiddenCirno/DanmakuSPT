@@ -54,8 +54,11 @@ namespace BiliAPI
         private Thread EventListenerThread { get; set; }
         private bool IsEventListenerRunning { get; set; }
 
+        private bool _isDisconnecting = false;
+        private readonly object _disconnectLock = new object();
+
         /// <summary>
-        /// Constructor 
+        /// Constructor
         /// </summary>
         /// <param name="roomId"></param>
         public BiliLiveListener(long roomId, Protocols protocol, string cookie = "")
@@ -133,17 +136,40 @@ namespace BiliAPI
 
         public void Disconnect()
         {
+            lock (_disconnectLock)
+            {
+                if (_isDisconnecting) return;
+                _isDisconnecting = true;
+            }
+
             StopEventListener();
             StopHeartbeatSender();
             if (DanmakuTcpClient != null)
-                DanmakuTcpClient.Close();
+            {
+                try { DanmakuTcpClient.Close(); } catch { }
+            }
             if (DanmakuWebSocket != null)
             {
-                DanmakuWebSocket.CloseAsync(WebSocketCloseStatus.EndpointUnavailable, string.Empty, CancellationToken.None);
-                DanmakuWebSocket.Abort();
-                DanmakuWebSocket.Dispose();
+                try
+                {
+                    if (DanmakuWebSocket.State == WebSocketState.Open ||
+                        DanmakuWebSocket.State == WebSocketState.CloseReceived)
+                    {
+                        DanmakuWebSocket.CloseAsync(WebSocketCloseStatus.EndpointUnavailable, string.Empty, CancellationToken.None)
+                            .GetAwaiter().GetResult();
+                    }
+                }
+                catch { }
+                try { DanmakuWebSocket.Abort(); } catch { }
+                try { DanmakuWebSocket.Dispose(); } catch { }
+                DanmakuWebSocket = null;
             }
             Disconnected?.Invoke();
+
+            lock (_disconnectLock)
+            {
+                _isDisconnecting = false;
+            }
         }
 
         #endregion
@@ -323,8 +349,6 @@ namespace BiliAPI
         private void StopHeartbeatSender()
         {
             IsHeartbeatSenderRunning = false;
-            if (HeartbeatSenderThread != null)
-                HeartbeatSenderThread.Abort();
         }
 
         private void StartHeartbeatSender()
@@ -341,22 +365,34 @@ namespace BiliAPI
                     }
                     catch (SocketException)
                     {
-                        ConnectionFailed?.Invoke("心跳包发送失败");
-                        Disconnect();
+                        if (IsHeartbeatSenderRunning)
+                        {
+                            ConnectionFailed?.Invoke("心跳包发送失败");
+                            Disconnect();
+                        }
                     }
                     catch (InvalidOperationException)
                     {
-                        ConnectionFailed?.Invoke("心跳包发送失败");
-                        Disconnect();
+                        if (IsHeartbeatSenderRunning)
+                        {
+                            ConnectionFailed?.Invoke("心跳包发送失败");
+                            Disconnect();
+                        }
                     }
                     catch (IOException)
                     {
-                        ConnectionFailed?.Invoke("心跳包发送失败");
-                        Disconnect();
+                        if (IsHeartbeatSenderRunning)
+                        {
+                            ConnectionFailed?.Invoke("心跳包发送失败");
+                            Disconnect();
+                        }
                     }
-                    Thread.Sleep(30 * 1000);
+                    // 用 1s 循环替代 30s sleep，确保停止信号能被及时响应
+                    for (int i = 0; i < 30 && IsHeartbeatSenderRunning; i++)
+                        Thread.Sleep(1000);
                 }
             });
+            HeartbeatSenderThread.IsBackground = true;
             HeartbeatSenderThread.Start();
         }
 
@@ -367,8 +403,6 @@ namespace BiliAPI
         private void StopEventListener()
         {
             IsEventListenerRunning = false;
-            if (EventListenerThread != null)
-                EventListenerThread.Abort();
         }
 
         private void StartEventListener()
@@ -396,7 +430,6 @@ namespace BiliAPI
                                     JToken value = ((BiliPackReader.CommandPack)pack).Value;
                                     jsons.Add(value);
 
-                                    // 【新增】只要收到弹幕包，不管三七二十一，先原样打印出来！
                                     string cmdRaw = (string)value["cmd"];
                                     if (cmdRaw != null && cmdRaw.StartsWith("DANMU_MSG"))
                                     {
@@ -410,7 +443,6 @@ namespace BiliAPI
                                 case BiliPackReader.PackTypes.Heartbeat:
                                     ServerHeartbeatRecieved?.Invoke();
                                     break;
-                                
                             }
                         }
 
@@ -425,23 +457,31 @@ namespace BiliAPI
                     }
                     catch (SocketException)
                     {
-                        ConnectionFailed?.Invoke("网络Socket断开连接");
-                        Disconnect();
+                        if (IsEventListenerRunning)
+                        {
+                            ConnectionFailed?.Invoke("网络Socket断开连接");
+                            Disconnect();
+                        }
                     }
                     catch (IOException ex)
                     {
-                        // <--- 【关键修改】把 ex.Message 加上，别让报错变成哑巴
-                        ConnectionFailed?.Invoke($"数据流意外中断: {ex.Message}");
-                        Disconnect();
+                        if (IsEventListenerRunning)
+                        {
+                            ConnectionFailed?.Invoke($"数据流意外中断: {ex.Message}");
+                            Disconnect();
+                        }
                     }
-                    catch (Exception ex) // 【新增】捕获所有未知的解析和转换异常
+                    catch (Exception ex)
                     {
-                        // 这样一旦解压失败或JSON报错，你马上就能看到详细的错误堆栈
-                        ConnectionFailed?.Invoke($"数据解析崩溃: {ex.Message}");
-                        Disconnect();
+                        if (IsEventListenerRunning)
+                        {
+                            ConnectionFailed?.Invoke($"数据解析崩溃: {ex.Message}");
+                            Disconnect();
+                        }
                     }
                 }
             });
+            EventListenerThread.IsBackground = true;
             EventListenerThread.Start();
         }
 
